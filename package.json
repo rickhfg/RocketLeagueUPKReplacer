@@ -1,0 +1,19 @@
+{
+  "name": "rocket-league-upk-replacer",
+  "version": "1.0.0",
+  "description": "A desktop GUI tool to replace and manage custom UPK/UDK mod files in Rocket League.",
+  "main": "server.js",
+  "type": "module",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "keywords": [],
+  "author": "rickhfg",
+  "license": "ISC",
+  "dependencies": {
+    "express": "^4.19.2",
+    "multer": "^1.4.5-lts.1",
+    "open": "^10.1.0"
+  }
+}

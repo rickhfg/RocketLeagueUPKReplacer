@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Rocket League UPK Replacer</title>
+  <!-- Google Fonts: Outfit for clean modern headers/UI -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+  <!-- Background decorative glows -->
+  <div class="bg-glow bg-glow-blue"></div>
+  <div class="bg-glow bg-glow-orange"></div>
+
+  <div class="app-container">
+    
+    <!-- SECTION 1: Onboarding Setup Screen -->
+    <main id="setup-screen" class="setup-card glass-panel fade-in">
+      <header class="setup-header">
+        <div class="logo-area">
+          <span class="logo-icon">🚀</span>
+          <h1>Rocket League UPK Replacer</h1>
+        </div>
+        <p class="subtitle">Quickly replace in-game maps with custom training or workshop maps.</p>
+      </header>
+
+      <section class="setup-body">
+        <h2>Configure Installation Path</h2>
+        <p class="description">Select where Rocket League is installed on your computer so we can access map files safely.</p>
+        
+        <div class="detect-options">
+          <!-- Steam Option -->
+          <button type="button" id="btn-select-steam" class="option-btn steam-style">
+            <span class="btn-icon">🎮</span>
+            <div class="btn-text">
+              <span class="title">Steam Library</span>
+              <span class="detail" id="steam-path-status">Checking default location...</span>
+            </div>
+          </button>
+
+          <!-- Epic Games Option -->
+          <button type="button" id="btn-select-epic" class="option-btn epic-style">
+            <span class="btn-icon">⚡</span>
+            <div class="btn-text">
+              <span class="title">Epic Games Store</span>
+              <span class="detail" id="epic-path-status">Checking default location...</span>
+            </div>
+          </button>
+
+          <!-- Custom Dialog Option -->
+          <button type="button" id="btn-select-custom" class="option-btn custom-style">
+            <span class="btn-icon">📁</span>
+            <div class="btn-text">
+              <span class="title">Custom Location</span>
+              <span class="detail">Browse computer folders</span>
+            </div>
+          </button>
+        </div>
+
+        <div class="divider">
+          <span>OR PASTE PATH MANUALLY</span>
+        </div>
+
+        <form id="manual-path-form" class="manual-path-area">
+          <input type="text" id="manual-path-input" placeholder="e.g., D:\Games\Rocket League" autocomplete="off" />
+          <button type="submit" id="btn-manual-submit" class="primary-btn">Validate</button>
+        </form>
+      </section>
+
+      <footer class="setup-footer">
+        <div id="setup-status-message" class="status-msg hide"></div>
+      </footer>
+    </main>
+
+    <!-- SECTION 2: Main Application Dashboard -->
+    <main id="dashboard-screen" class="dashboard-layout hide">
+      
+      <!-- Top Navigation Header -->
+      <header class="dash-header glass-panel fade-in">
+        <div class="dash-branding">
+          <span class="logo-icon-small">🚀</span>
+          <h2>RL UPK Replacer</h2>
+          <span class="status-indicator">
+            <span class="indicator-dot pulse-green"></span>
+            Connected
+          </span>
+        </div>
+        
+        <div class="path-display-card">
+          <div class="path-details">
+            <span class="label">Rocket League Path</span>
+            <span id="active-path-text" class="path-value">D:\Games\Rocket League</span>
+          </div>
+          <button type="button" id="btn-change-path" class="secondary-btn-small">Change Path</button>
+        </div>
+      </header>
+
+      <div class="dash-content">
+        <!-- Main Actions Area (Left) -->
+        <section class="main-panel glass-panel fade-in-delay-1">
+          <header class="panel-header">
+            <h3>Replace Map file</h3>
+            <p>Upload your custom .upk file and select the map you want to replace.</p>
+          </header>
+
+          <div class="upload-section">
+            <!-- Drag and Drop Zone -->
+            <div id="drop-zone" class="drop-zone-card">
+              <input type="file" id="file-input" accept=".upk,.udk" class="hide-input" />
+              <div class="drop-zone-content">
+                <span class="upload-icon">📥</span>
+                <span class="main-instruction">Drag & drop your custom <strong>.upk</strong> file here</span>
+                <span class="sub-instruction">or click to browse your files</span>
+              </div>
+            </div>
+
+            <!-- Selected File Card (Hidden by default) -->
+            <div id="file-details-card" class="file-card hide">
+              <div class="file-icon">📄</div>
+              <div class="file-info">
+                <span id="file-name-text" class="file-name">CustomMap.upk</span>
+                <span id="file-size-text" class="file-size">145 MB</span>
+              </div>
+              <button type="button" id="btn-clear-file" class="clear-btn" title="Remove file">✕</button>
+            </div>
+          </div>
+
+          <div class="selector-section">
+            <label for="map-target-select">Choose In-Game Target Map</label>
+            <div class="custom-select-wrapper">
+              <select id="map-target-select">
+                <option value="" disabled selected>Select a target map...</option>
+                <!-- Dynamically populated from JS -->
+              </select>
+            </div>
+          </div>
+
+          <button type="button" id="btn-replace" class="action-btn-replace disabled" disabled>
+            <span>Replace Map</span>
+          </button>
+        </section>
+
+        <!-- Maps Status Sidebar (Right) -->
+        <aside class="sidebar-panel glass-panel fade-in-delay-2">
+          <div class="sidebar-header">
+            <h3>Replacement Targets</h3>
+            <button type="button" id="btn-refresh-maps" class="icon-btn-refresh" title="Refresh Map Statuses">🔄</button>
+          </div>
+          
+          <div id="map-status-list" class="maps-list">
+            <!-- Dynamically populated from JS -->
+            <div class="loading-placeholder">Loading map statuses...</div>
+          </div>
+        </aside>
+      </div>
+
+    </main>
+
+  </div>
+
+  <!-- Confirmation Modal -->
+  <div id="confirm-modal" class="modal-overlay hide">
+    <div class="modal-card glass-panel scale-up">
+      <div class="modal-header">
+        <h4 id="modal-title">Confirm Action</h4>
+        <button type="button" id="btn-modal-close" class="modal-close-btn">✕</button>
+      </div>
+      <div class="modal-body">
+        <p id="modal-body-text">Are you sure you want to perform this action?</p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" id="btn-modal-cancel" class="secondary-btn">Cancel</button>
+        <button type="button" id="btn-modal-confirm" class="primary-btn-danger">Confirm</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Notification Container -->
+  <div id="toast-container" class="toast-container"></div>
+
+  <script src="js/app.js"></script>
+</body>
+</html>

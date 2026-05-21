@@ -1,0 +1,15 @@
+# Dependency directories
+node_modules/
+
+# Local configuration
+settings.json
+
+# Temporary files & uploads
+temp_uploads/
+*.tmp
+*.bak
+*.log
+
+# OS metadata
+.DS_Store
+Thumbs.db
