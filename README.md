@@ -1,6 +1,6 @@
 # Rocket League UPK Replacer (RLUPKR)
 
-An ultra-snappy, modern, dark-themed local GUI tool designed to replace Rocket League map files (`.upk`) with custom maps (such as workshop or custom training maps).
+An ultra-snappy, modern, dark-themed local GUI tool designed to replace Rocket League game files (`.upk`). It allows you to use edited `.upk` files to customize your game—for example, to load custom training/workshop maps, use the Fennec model while Octane is selected, customize trails, boosts, and more.
 
 ## Features
 
