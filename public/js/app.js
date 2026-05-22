@@ -465,6 +465,17 @@ async function loadMods() {
   }
 }
 
+// HTML escape utility
+function escapeHtml(str) {
+  if (!str) return '';
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
 // RENDER ACTIVE MODS IN SIDEBAR
 function renderMods() {
   modsStatusList.innerHTML = '';
@@ -478,10 +489,18 @@ function renderMods() {
     const item = document.createElement('div');
     item.className = 'map-item-card';
 
+    const hasComment = !!mod.comment;
+
     item.innerHTML = `
       <div class="map-item-details">
         <span class="map-name">${mod.filename}</span>
         <span class="map-file" title="${mod.relativePath}">${mod.relativePath}</span>
+        <div class="mod-comment-wrapper" data-rel-path="${mod.relativePath}">
+          ${hasComment 
+            ? `<span class="mod-comment-text" title="Click to edit comment">${escapeHtml(mod.comment)}</span>` 
+            : `<button type="button" class="add-comment-btn">+ Add note</button>`
+          }
+        </div>
       </div>
       <div class="map-item-actions">
         <span class="status-badge modded">Modded</span>
@@ -490,6 +509,88 @@ function renderMods() {
     `;
 
     modsStatusList.appendChild(item);
+
+    // Bind inline note editors
+    const commentWrapper = item.querySelector('.mod-comment-wrapper');
+    const commentTextEl = commentWrapper.querySelector('.mod-comment-text');
+    const addCommentBtn = commentWrapper.querySelector('.add-comment-btn');
+
+    const startEditing = () => {
+      const currentVal = mod.comment || '';
+      commentWrapper.innerHTML = `
+        <div class="mod-comment-edit-group">
+          <input type="text" class="mod-comment-input" value="${escapeHtml(currentVal)}" placeholder="Describe this mod..." maxlength="100" />
+          <button type="button" class="save-comment-btn" title="Save note">✓</button>
+          <button type="button" class="cancel-comment-btn" title="Cancel">✗</button>
+        </div>
+      `;
+
+      const input = commentWrapper.querySelector('.mod-comment-input');
+      const saveBtn = commentWrapper.querySelector('.save-comment-btn');
+      const cancelBtn = commentWrapper.querySelector('.cancel-comment-btn');
+
+      input.focus();
+      input.select();
+
+      const save = async () => {
+        const newVal = input.value.trim();
+        if (newVal === currentVal) {
+          renderMods();
+          return;
+        }
+        try {
+          const res = await apiFetch('/api/mod-comment', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ relativePath: mod.relativePath, comment: newVal })
+          });
+          if (res.ok) {
+            mod.comment = newVal;
+            showToast('Note updated!', 'success');
+          } else {
+            showToast('Failed to update note.', 'error');
+          }
+        } catch (e) {
+          console.error(e);
+          showToast('Failed to update note.', 'error');
+        }
+        loadMods();
+      };
+
+      saveBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        save();
+      });
+
+      cancelBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        renderMods();
+      });
+
+      input.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          save();
+        } else if (e.key === 'Escape') {
+          e.preventDefault();
+          renderMods();
+        }
+      });
+    };
+
+    if (commentTextEl) {
+      commentTextEl.addEventListener('click', (e) => {
+        e.stopPropagation();
+        startEditing();
+      });
+    }
+
+    if (addCommentBtn) {
+      addCommentBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        startEditing();
+      });
+    }
   });
 
   // Attach restore action listeners

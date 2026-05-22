@@ -95,9 +95,16 @@ let cachedCookedFiles = [];
 
 // Recursive directory walk
 function walkDir(dir, fileList = [], extensionFilter = ['.upk', '.udk']) {
+  let files = [];
   try {
-    const files = fs.readdirSync(dir);
-    for (const file of files) {
+    files = fs.readdirSync(dir);
+  } catch (e) {
+    // Gracefully ignore directory read or permission issues
+    return fileList;
+  }
+
+  for (const file of files) {
+    try {
       const filePath = path.join(dir, file);
       const stat = fs.lstatSync(filePath);
       
@@ -110,14 +117,13 @@ function walkDir(dir, fileList = [], extensionFilter = ['.upk', '.udk']) {
         walkDir(filePath, fileList, extensionFilter);
       } else {
         const ext = path.extname(file).toLowerCase();
-        // Index only matching extensions, exclude backup files (*.rlupk.bak)
-        if (extensionFilter.includes(ext) && !file.toLowerCase().endsWith('.rlupk.bak')) {
+        if (extensionFilter.includes(ext)) {
           fileList.push(filePath);
         }
       }
+    } catch (e) {
+      // Gracefully ignore individual file stat/permission issues and continue scanning
     }
-  } catch (e) {
-    // Gracefully ignore directory read or permission issues
   }
   return fileList;
 }
@@ -176,9 +182,11 @@ function readSettings() {
 }
 
 // Write settings
-function writeSettings(settings) {
+function writeSettings(newSettings) {
   try {
-    fs.writeFileSync(SETTINGS_FILE, JSON.stringify(settings, null, 2), 'utf8');
+    const current = readSettings();
+    const merged = { ...current, ...newSettings };
+    fs.writeFileSync(SETTINGS_FILE, JSON.stringify(merged, null, 2), 'utf8');
   } catch (e) {
     console.error('Error writing settings.json:', e);
   }
@@ -613,6 +621,7 @@ app.get('/api/mods', verifyToken, (req, res) => {
   try {
     const backupPaths = walkDir(cookedPath, [], ['.bak']);
     const rlupkBackups = backupPaths.filter(p => p.toLowerCase().endsWith('.rlupk.bak'));
+    const modComments = settings.modComments || {};
 
     const mods = rlupkBackups.map(backupPath => {
       const relativeBackup = path.relative(cookedPath, backupPath).replace(/\\/g, '/');
@@ -640,7 +649,8 @@ app.get('/api/mods', verifyToken, (req, res) => {
         backupPath: relativeBackup,
         currentSize,
         backupSize,
-        modifiedAt
+        modifiedAt,
+        comment: modComments[relativeTarget] || ''
       };
     });
 
@@ -648,6 +658,32 @@ app.get('/api/mods', verifyToken, (req, res) => {
   } catch (error) {
     console.error('Error listing active mods:', error);
     res.status(500).json({ error: error.message });
+  }
+});
+
+// Route: Update Mod Comment
+app.post('/api/mod-comment', verifyToken, (req, res) => {
+  const { relativePath, comment } = req.body;
+  if (!relativePath) {
+    return res.status(400).json({ success: false, error: 'Relative path is required.' });
+  }
+
+  try {
+    const settings = readSettings();
+    const modComments = settings.modComments || {};
+    const cleanComment = (comment || '').trim();
+    
+    if (cleanComment) {
+      modComments[relativePath] = cleanComment;
+    } else {
+      delete modComments[relativePath];
+    }
+    
+    writeSettings({ modComments });
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Error updating mod comment:', error);
+    res.status(500).json({ success: false, error: error.message });
   }
 });
 
@@ -764,6 +800,13 @@ app.post('/api/restore', verifyToken, (req, res) => {
     // Restore backup back to original name (which also deletes the backup file since we rename it)
     fs.renameSync(backupPath, targetPath);
     console.log(`[Restore Successful] Restored original ${relativePath} from backup.`);
+
+    // Clean up comment if one exists
+    if (settings.modComments && settings.modComments[relativePath]) {
+      const modComments = { ...settings.modComments };
+      delete modComments[relativePath];
+      writeSettings({ modComments });
+    }
 
     res.json({ success: true });
   } catch (error) {

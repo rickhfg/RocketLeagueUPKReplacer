@@ -1380,3 +1380,114 @@ body {
   border-color: var(--panel-border);
 }
 
+/* ACTIVE REPLACEMENT COMMENTS/NOTES */
+.mod-comment-wrapper {
+  margin-top: 6px;
+  display: flex;
+  align-items: center;
+}
+
+.mod-comment-text {
+  font-size: 0.8rem;
+  color: var(--accent-blue);
+  cursor: pointer;
+  font-style: italic;
+  transition: var(--transition-smooth);
+  padding: 2px 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.mod-comment-text::before {
+  content: '📝';
+  font-style: normal;
+  font-size: 0.75rem;
+  opacity: 0.75;
+}
+
+.mod-comment-text:hover {
+  color: var(--text-primary);
+  text-decoration: underline dashed rgba(255, 255, 255, 0.3);
+}
+
+.add-comment-btn {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-family: var(--font-main);
+  font-size: 0.75rem;
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: var(--border-radius-sm);
+  border: 1px dashed rgba(255, 255, 255, 0.08);
+  transition: var(--transition-smooth);
+}
+
+.add-comment-btn:hover {
+  color: var(--accent-blue);
+  background: rgba(0, 210, 255, 0.05);
+  border-color: rgba(0, 210, 255, 0.2);
+}
+
+.mod-comment-edit-group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  max-width: 280px;
+}
+
+.mod-comment-input {
+  flex: 1;
+  background: rgba(0, 0, 0, 0.35);
+  border: 1px solid var(--panel-border);
+  border-radius: var(--border-radius-sm);
+  padding: 4px 8px;
+  color: var(--text-primary);
+  font-family: var(--font-main);
+  font-size: 0.8rem;
+  outline: none;
+  transition: var(--transition-smooth);
+}
+
+.mod-comment-input:focus {
+  border-color: var(--accent-orange);
+  box-shadow: 0 0 8px var(--accent-orange-glow);
+}
+
+.save-comment-btn,
+.cancel-comment-btn {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--panel-border);
+  border-radius: var(--border-radius-sm);
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.75rem;
+  cursor: pointer;
+  transition: var(--transition-smooth);
+}
+
+.save-comment-btn {
+  color: var(--accent-green);
+}
+
+.save-comment-btn:hover {
+  background: rgba(0, 245, 160, 0.1);
+  border-color: var(--accent-green);
+  box-shadow: 0 0 8px var(--accent-green-glow);
+}
+
+.cancel-comment-btn {
+  color: var(--accent-red);
+}
+
+.cancel-comment-btn:hover {
+  background: rgba(255, 51, 102, 0.1);
+  border-color: var(--accent-red);
+}
+
+
