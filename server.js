@@ -46,6 +46,7 @@ const upload = multer({
 });
 
 const SETTINGS_FILE = path.join(__dirname, 'settings.json');
+let activePickerProcess = null;
 
 // Default paths to check
 const STEAM_DEFAULT = 'C:\\Program Files (x86)\\Steam\\steamapps\\common\\rocketleague';
@@ -146,26 +147,55 @@ app.post('/api/select-path', async (req, res) => {
     } else if (type === 'custom-manual') {
       targetPath = manualPath;
     } else if (type === 'custom') {
-      // Trigger PowerShell folder selector
-      const psCommand = `
-        Add-Type -AssemblyName System.Windows.Forms
-        $f = New-Object System.Windows.Forms.FolderBrowserDialog
-        $f.Description = "Select Rocket League Installation Folder (containing TAGame)"
-        $f.ShowNewFolderButton = $false
-        $res = $f.ShowDialog()
-        if ($res -eq "OK") {
-          Write-Output $f.SelectedPath
+      // If there is an active folder picker running, terminate it first to prevent hangs
+      if (activePickerProcess) {
+        try {
+          activePickerProcess.kill();
+          activePickerProcess = null;
+        } catch (e) {
+          console.error('Error killing active picker process:', e);
         }
-      `.replace(/\n/g, ' ');
+      }
 
-      const runPs = () => new Promise((resolve, reject) => {
-        exec(`powershell -NoProfile -ExecutionPolicy Bypass -Command "${psCommand}"`, (err, stdout, stderr) => {
-          if (err) reject(err);
-          else resolve(stdout.trim());
+      // Trigger PowerShell folder selector via temporary file
+      const tempScriptPath = path.join(TEMP_DIR, `picker_${Date.now()}.ps1`);
+      const psScript = `
+        $sig = '[DllImport("user32.dll")] public static extern IntPtr GetForegroundWindow();';
+        $type = Add-Type -MemberDefinition $sig -Name "Win32Util" -Namespace "Win32" -PassThru;
+        $hwnd = $type::GetForegroundWindow();
+
+        $shell = New-Object -ComObject Shell.Application;
+        $folder = $shell.BrowseForFolder($hwnd.ToInt32(), "Select Rocket League Installation Folder (containing TAGame)", 64, 0);
+        if ($folder) {
+            Write-Output $folder.Self.Path;
+        }
+      `;
+      
+      try {
+        fs.writeFileSync(tempScriptPath, psScript, 'utf8');
+
+        const runPs = () => new Promise((resolve, reject) => {
+          const child = exec(`powershell -NoProfile -ExecutionPolicy Bypass -File "${tempScriptPath}"`, (err, stdout, stderr) => {
+            activePickerProcess = null;
+            if (err) {
+              if (err.killed) resolve(''); // Resolve empty if killed by a new picker request
+              else reject(err);
+            } else if (stderr.trim()) {
+              reject(new Error(stderr.trim()));
+            } else {
+              resolve(stdout.trim());
+            }
+          });
+          activePickerProcess = child;
         });
-      });
 
-      targetPath = await runPs();
+        targetPath = await runPs();
+      } finally {
+        if (fs.existsSync(tempScriptPath)) {
+          fs.unlinkSync(tempScriptPath);
+        }
+      }
+
       if (!targetPath) {
         return res.json({ success: false, error: 'Folder selection cancelled.' });
       }

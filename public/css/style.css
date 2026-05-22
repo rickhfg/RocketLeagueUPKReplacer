@@ -978,21 +978,48 @@ body {
 }
 
 .status-msg {
-  padding: 14px;
+  padding: 16px 20px;
   border-radius: var(--border-radius-md);
   font-size: 0.85rem;
-  line-height: 1.4;
+  line-height: 1.5;
   text-align: left;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: rgba(10, 11, 15, 0.85);
+  border: 1px solid var(--panel-border);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+  animation: slideAlert 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.2) forwards;
+}
+
+@keyframes slideAlert {
+  from {
+    transform: translateY(-10px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.status-msg .msg-icon {
+  font-size: 1.2rem;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+}
+
+.status-msg .msg-text {
+  flex-grow: 1;
 }
 
 .status-msg.success {
-  background: rgba(0, 245, 160, 0.08);
-  border: 1px solid rgba(0, 245, 160, 0.2);
-  color: var(--accent-green);
+  border-left: 3px solid var(--accent-green);
+  color: #a3f7d2;
 }
 
 .status-msg.error {
-  background: rgba(255, 51, 102, 0.08);
-  border: 1px solid rgba(255, 51, 102, 0.2);
-  color: #ff527c;
+  border-left: 3px solid var(--accent-red);
+  color: #ffccd5;
 }

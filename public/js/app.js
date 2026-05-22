@@ -68,7 +68,8 @@ function showToast(message, type = 'success') {
 
 // SETUP STATUS MESSAGE (inline)
 function showSetupMsg(message, type = 'error') {
-  setupStatusMessage.textContent = message;
+  const icon = type === 'error' ? '⚠️' : '✅';
+  setupStatusMessage.innerHTML = `<span class="msg-icon">${icon}</span><span class="msg-text">${message}</span>`;
   setupStatusMessage.className = `status-msg ${type}`;
   setupStatusMessage.classList.remove('hide');
 }
