@@ -1,63 +1,35 @@
 # Rocket League UPK Replacer (RLUPKR)
 
-A premium, high-performance local desktop GUI tool designed to replace Rocket League game files (`.upk` / `.udk`). It allows you to customize maps, car bodies, decals, wheels, boosts, and other game assets with ease. 
+A desktop tool to replace and manage custom `.upk` and `.udk` files in Rocket League (for custom maps, decals, car bodies, wheels, boosts, etc.).
 
-Built using **Tauri v2**, **Rust**, and **Vanilla HTML/CSS/JS** for an instantaneous, lightweight, and completely local user experience.
+## Downloads
 
----
+Download the latest version from the [Releases](https://github.com/rickhfg/RocketLeagueUPKReplacer/releases/tag/v0.1.0) page:
+* [rlupkr.exe](https://github.com/rickhfg/RocketLeagueUPKReplacer/releases/download/v0.1.0/rlupkr.exe) (Standalone executable, no install required)
+* [RLUPKR_0.1.0_x64-setup.exe](https://github.com/rickhfg/RocketLeagueUPKReplacer/releases/download/v0.1.0/RLUPKR_0.1.0_x64-setup.exe) (Standard installer)
+* [RLUPKR_0.1.0_x64_en-US.msi](https://github.com/rickhfg/RocketLeagueUPKReplacer/releases/download/v0.1.0/RLUPKR_0.1.0_x64_en-US.msi) (MSI installer)
 
-## 🚀 Download Stable Releases
+## Features
 
-You can download the compiled standalone binaries and installers directly from the latest GitHub Release:
+* **Auto-detects game paths**: Automatically finds default Steam and Epic Games install folders.
+* **Search & Categories**: Filter target files by name or select a category (Wheels, Decals, Maps, etc.).
+* **Drag and Drop**: Drag a custom `.upk`/`.udk` file and swap it with the target game file.
+* **Backups & Restores**: Keeps original backups (`.rlupk.bak`) and lets you revert changes in one click.
+* **Mod tracker**: Lists active replacements and lets you save notes on them.
 
-👉 **[Latest Release (v0.1.0)](https://github.com/rickhfg/RocketLeagueUPKReplacer/releases/tag/v0.1.0)**
+## Building from source
 
-* **[Raw Standalone Executable (rlupkr.exe)](https://github.com/rickhfg/RocketLeagueUPKReplacer/releases/download/v0.1.0/rlupkr.exe)** - No installation required, simply download and double-click to run.
-* **[Windows Setup Installer (NSIS)](https://github.com/rickhfg/RocketLeagueUPKReplacer/releases/download/v0.1.0/RLUPKR_0.1.0_x64-setup.exe)** - Lightweight setup wizard installer.
-* **[Windows WiX Installer (MSI)](https://github.com/rickhfg/RocketLeagueUPKReplacer/releases/download/v0.1.0/RLUPKR_0.1.0_x64_en-US.msi)** - MSI installer package.
+You need [Rust](https://rustup.rs/) and [Node.js](https://nodejs.org/) installed.
 
----
-
-## ✨ Features
-
-- **Tauri Standalone Desktop App**: Native OS webview integration. Zero Node.js runtime required at runtime, minimal memory footprint, and launch times under 1 second.
-- **Auto-Detection**: Scans default Steam and Epic Games installation locations on startup.
-- **Search & Categories**: Easily find targeted files by name, or browse through grouped categories (Maps, Decals, Antennas, Wheels, Boosts, etc.) with custom tags.
-- **Drag-and-Drop Swapping**: Drop custom `.upk` or `.udk` mod files directly onto the target zone to queue them for replacement.
-- **Notes & Comment Tracker**: Save custom notes on active mods to easily track what has been replaced.
-- **Safety Backups & Restores**: Automatically creates `.rlupk.bak` backups before modifying any game files, letting you revert changes in one click.
-
----
-
-## 🛠️ Installation & Build from Source
-
-If you prefer to compile RLUPKR yourself or make modifications:
-
-### Prerequisites
-1. **Rust / Cargo**: Install from [rustup.rs](https://rustup.rs/)
-2. **Node.js**: Install from [nodejs.org](https://nodejs.org/) (needed only for dev tooling and compiling)
-
-### 1. Run Developer Server
-Start the application in local development mode with hot-reloading:
 ```bash
+# install dependencies
 npm install
-npm run tauri dev
-```
 
-### 2. Build Standalone Executables
-Compile the Rust code with release-level optimizations and package into standalone binaries:
-```bash
+# run in development mode
+npm run tauri dev
+
+# build release binaries
 npm run tauri build
 ```
 
-The compiled binaries will be output to:
-- **Standalone EXE**: `src-tauri/target/release/rlupkr.exe`
-- **WiX MSI Installer**: `src-tauri/target/release/bundle/msi/RLUPKR_0.1.0_x64_en-US.msi`
-- **NSIS Installer**: `src-tauri/target/release/bundle/nsis/RLUPKR_0.1.0_x64-setup.exe`
-
----
-
-## 🔒 Security & Local Execution
-
-- **Zero External Network Dependencies**: The app operates completely offline and client-side on your local machine.
-- **Path Traversal Protection**: The Rust backend enforces strict directory validation. Mod replacements can only touch files located under the configured `CookedPCConsole` root directory.
+The output executables will be built under `src-tauri/target/release/`.
