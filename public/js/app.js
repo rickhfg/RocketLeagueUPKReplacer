@@ -19,6 +19,169 @@ async function apiFetch(url, options = {}) {
   return fetch(url, options);
 }
 
+// TAURI OR EXPRESS API ABSTRACTION LAYER
+const STEAM_DEFAULT = 'C:\\Program Files (x86)\\Steam\\steamapps\\common\\rocketleague';
+const EPIC_DEFAULT = 'C:\\Program Files\\Epic Games\\rocketleague';
+if (window.logToBackend) {
+  window.logToBackend("App initialization. window.__TAURI__ present?", !!window.__TAURI__);
+  if (window.__TAURI__) {
+    window.logToBackend("window.__TAURI__ keys:", Object.keys(window.__TAURI__));
+    if (window.__TAURI__.core) {
+      window.logToBackend("window.__TAURI__.core keys:", Object.keys(window.__TAURI__.core));
+    }
+  }
+}
+const isTauriApp = !!window.__TAURI__;
+
+const api = {
+  async getStatus() {
+    if (isTauriApp) {
+      return await window.__TAURI__.core.invoke('get_status');
+    } else {
+      const response = await apiFetch('/api/status');
+      return await response.json();
+    }
+  },
+  async selectPath(type, manualPath = '') {
+    if (isTauriApp) {
+      let data;
+      if (type === 'steam') {
+        data = await window.__TAURI__.core.invoke('save_settings', { path: STEAM_DEFAULT });
+      } else if (type === 'epic') {
+        data = await window.__TAURI__.core.invoke('save_settings', { path: EPIC_DEFAULT });
+      } else if (type === 'custom-manual') {
+        data = await window.__TAURI__.core.invoke('save_settings', { path: manualPath });
+      } else if (type === 'custom') {
+        const folder = await window.__TAURI__.core.invoke('pick_rl_folder');
+        if (folder) {
+          data = await window.__TAURI__.core.invoke('save_settings', { path: folder });
+        } else {
+          return { success: false, error: 'Folder selection cancelled.' };
+        }
+      }
+      if (data && data.pathSet) {
+        return { success: true, path: data.rocketLeaguePath, cookedPath: data.cookedPath };
+      } else {
+        return { success: false, error: 'Invalid Rocket League directory.' };
+      }
+    } else {
+      const response = await apiFetch('/api/select-path', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type, manualPath })
+      });
+      return await response.json();
+    }
+  },
+  async resetPath() {
+    if (isTauriApp) {
+      await window.__TAURI__.core.invoke('save_settings', { path: '' });
+      return { success: true };
+    } else {
+      const response = await apiFetch('/api/reset-path', { method: 'POST' });
+      return await response.json();
+    }
+  },
+  async search(query) {
+    if (isTauriApp) {
+      const results = await window.__TAURI__.core.invoke('search_files', { query });
+      return { results };
+    } else {
+      const response = await apiFetch(`/api/search?q=${encodeURIComponent(query)}`);
+      return await response.json();
+    }
+  },
+  async getCategories() {
+    if (isTauriApp) {
+      const categories = await window.__TAURI__.core.invoke('get_categories');
+      return { categories };
+    } else {
+      const response = await apiFetch('/api/categories');
+      return await response.json();
+    }
+  },
+  async getFilesByCategory(category) {
+    if (isTauriApp) {
+      const files = await window.__TAURI__.core.invoke('get_files_by_category', { category });
+      return { files };
+    } else {
+      const response = await apiFetch(`/api/files-by-category?category=${category}`);
+      return await response.json();
+    }
+  },
+  async getMods() {
+    if (isTauriApp) {
+      const mods = await window.__TAURI__.core.invoke('get_mods');
+      return { mods, count: mods.length };
+    } else {
+      const response = await apiFetch('/api/mods');
+      return await response.json();
+    }
+  },
+  async updateModComment(relativePath, comment) {
+    if (isTauriApp) {
+      await window.__TAURI__.core.invoke('update_mod_comment', { relativePath, comment });
+      return { success: true };
+    } else {
+      const response = await apiFetch('/api/mod-comment', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ relativePath, comment })
+      });
+      return await response.json();
+    }
+  },
+  async replaceFile(relativePath, fileOrPath) {
+    if (isTauriApp) {
+      await window.__TAURI__.core.invoke('replace_file', { relativePath, customFilePath: fileOrPath });
+      return { success: true };
+    } else {
+      const formData = new FormData();
+      formData.append('relativePath', relativePath);
+      formData.append('customUpk', fileOrPath);
+      const response = await apiFetch('/api/replace', {
+        method: 'POST',
+        body: formData
+      });
+      return await response.json();
+    }
+  },
+  async restoreFile(relativePath) {
+    if (isTauriApp) {
+      await window.__TAURI__.core.invoke('restore_file', { relativePath });
+      return { success: true };
+    } else {
+      const response = await apiFetch('/api/restore', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ relativePath })
+      });
+      return await response.json();
+    }
+  },
+  async pickTargetFile() {
+    if (isTauriApp) {
+      const relativePath = await window.__TAURI__.core.invoke('pick_target_file');
+      if (relativePath) {
+        const filename = relativePath.substring(relativePath.lastIndexOf('/') + 1);
+        return { success: true, relativePath, filename };
+      } else {
+        return { success: false, error: 'File selection cancelled.' };
+      }
+    } else {
+      const response = await apiFetch('/api/pick-target-file', { method: 'POST' });
+      return await response.json();
+    }
+  },
+  async pickCustomFile() {
+    if (isTauriApp) {
+      return await window.__TAURI__.core.invoke('pick_custom_file');
+    } else {
+      return null;
+    }
+  }
+};
+
 // DOM ELEMENTS
 const setupScreen = document.getElementById('setup-screen');
 const dashboardScreen = document.getElementById('dashboard-screen');
@@ -49,7 +212,6 @@ const btnClearFile = document.getElementById('btn-clear-file');
 const targetSearchInput = document.getElementById('target-search-input');
 const btnBrowseTarget = document.getElementById('btn-browse-target');
 const searchResultsList = document.getElementById('search-results-list');
-const quickTargetChips = document.getElementById('quick-target-chips');
 
 // Categorized selector DOM elements
 const tabSearch = document.getElementById('tab-search');
@@ -144,9 +306,10 @@ btnModalConfirm.addEventListener('click', () => {
 
 // INITIALIZE APP AND CHECK STATUS
 async function checkStatus() {
+  if (window.logToBackend) window.logToBackend("checkStatus() entry. calling api.getStatus...");
   try {
-    const response = await apiFetch('/api/status');
-    const data = await response.json();
+    const data = await api.getStatus();
+    if (window.logToBackend) window.logToBackend("api.getStatus() resolved:", data);
 
     // Check Steam location status
     if (data.steamExists) {
@@ -184,7 +347,6 @@ function showDashboard() {
   setupScreen.classList.add('hide');
   dashboardScreen.classList.remove('hide');
   activePathText.textContent = state.activePath;
-  loadQuickTargets();
   loadMods();
   loadCategories();
 }
@@ -199,12 +361,7 @@ function showSetup() {
 async function selectPath(type, manualPath = '') {
   clearSetupMsg();
   try {
-    const response = await apiFetch('/api/select-path', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ type, manualPath })
-    });
-    const data = await response.json();
+    const data = await api.selectPath(type, manualPath);
 
     if (data.success) {
       state.activePath = data.path;
@@ -236,8 +393,7 @@ manualPathForm.addEventListener('submit', (e) => {
 
 btnChangePath.addEventListener('click', async () => {
   try {
-    const response = await apiFetch('/api/reset-path', { method: 'POST' });
-    const data = await response.json();
+    const data = await api.resetPath();
     if (data.success) {
       state.activePath = null;
       state.cookedPath = null;
@@ -251,34 +407,7 @@ btnChangePath.addEventListener('click', async () => {
   }
 });
 
-// LOAD QUICK TARGETS CHIPS
-async function loadQuickTargets() {
-  try {
-    const response = await apiFetch('/api/quick-targets');
-    const data = await response.json();
 
-    quickTargetChips.innerHTML = '';
-    if (data.targets && data.targets.length > 0) {
-      data.targets.forEach(target => {
-        const btn = document.createElement('button');
-        btn.type = 'button';
-        btn.className = 'chip-btn';
-        btn.textContent = target.name;
-        btn.addEventListener('click', () => {
-          selectTarget({
-            relativePath: target.filename,
-            filename: target.filename
-          });
-        });
-        quickTargetChips.appendChild(btn);
-      });
-    } else {
-      quickTargetChips.innerHTML = '<span class="text-muted">No quick targets available</span>';
-    }
-  } catch (e) {
-    console.error('Error fetching quick targets:', e);
-  }
-}
 
 // TARGET AUTOCOMPLETE SEARCH WITH DEBOUNCE
 let searchTimeout = null;
@@ -299,8 +428,7 @@ targetSearchInput.addEventListener('input', () => {
 
 async function performSearch(query) {
   try {
-    const response = await apiFetch(`/api/search?q=${encodeURIComponent(query)}`);
-    const data = await response.json();
+    const data = await api.search(query);
     searchResults = data.results || [];
     activeSearchIndex = -1;
     renderSuggestions();
@@ -424,8 +552,7 @@ btnBrowseTarget.addEventListener('click', async () => {
     btnBrowseTarget.classList.add('disabled');
     btnBrowseTarget.setAttribute('disabled', 'true');
     
-    const response = await apiFetch('/api/pick-target-file', { method: 'POST' });
-    const data = await response.json();
+    const data = await api.pickTargetFile();
 
     if (data.success) {
       selectTarget({
@@ -449,10 +576,9 @@ btnBrowseTarget.addEventListener('click', async () => {
 async function loadMods() {
   modsStatusList.innerHTML = '<div class="loading-placeholder">Loading active replacements...</div>';
   try {
-    const response = await apiFetch('/api/mods');
-    const data = await response.json();
+    const data = await api.getMods();
 
-    if (response.ok && data.mods !== undefined) {
+    if (data && data.mods !== undefined) {
       state.mods = data.mods;
       modsCountBadge.textContent = data.count;
       renderMods();
@@ -539,12 +665,8 @@ function renderMods() {
           return;
         }
         try {
-          const res = await apiFetch('/api/mod-comment', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ relativePath: mod.relativePath, comment: newVal })
-          });
-          if (res.ok) {
+          const data = await api.updateModComment(mod.relativePath, newVal);
+          if (data.success) {
             mod.comment = newVal;
             showToast('Note updated!', 'success');
           } else {
@@ -612,12 +734,7 @@ function renderMods() {
 // RESTORE ORIGINAL FILE HANDLER
 async function restoreMod(relativePath) {
   try {
-    const response = await apiFetch('/api/restore', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ relativePath })
-    });
-    const data = await response.json();
+    const data = await api.restoreFile(relativePath);
 
     if (data.success) {
       showToast('Original package file restored!', 'success');
@@ -634,8 +751,20 @@ async function restoreMod(relativePath) {
 btnRefreshMods.addEventListener('click', loadMods);
 
 // DRAG AND DROP FILE HANDLERS
-dropZone.addEventListener('click', () => {
-  fileInput.click();
+dropZone.addEventListener('click', async () => {
+  if (isTauriApp) {
+    try {
+      const filePath = await api.pickCustomFile();
+      if (filePath) {
+        handleTauriFileSelected(filePath);
+      }
+    } catch (e) {
+      console.error(e);
+      showToast('Failed to select file.', 'error');
+    }
+  } else {
+    fileInput.click();
+  }
 });
 
 fileInput.addEventListener('change', (e) => {
@@ -664,6 +793,7 @@ fileInput.addEventListener('change', (e) => {
 
 // Handle dropped files
 dropZone.addEventListener('drop', (e) => {
+  if (isTauriApp) return;
   const dt = e.dataTransfer;
   const files = dt.files;
   if (files.length > 0) {
@@ -694,6 +824,48 @@ function handleFileSelected(file) {
   dropZone.classList.add('hide');
 
   checkFormValidity();
+}
+
+function handleTauriFileSelected(filePath) {
+  const filename = filePath.substring(filePath.lastIndexOf('/') + 1);
+  const ext = filename.substring(filename.lastIndexOf('.')).toLowerCase();
+
+  if (ext !== '.upk' && ext !== '.udk') {
+    showToast('Invalid file extension. Only .upk or .udk files are supported.', 'error');
+    clearSelectedFile();
+    return;
+  }
+
+  state.selectedFile = {
+    name: filename,
+    path: filePath,
+    isTauriApp: true
+  };
+  
+  fileNameText.textContent = filename;
+  fileSizeText.textContent = 'Local Mod File';
+
+  fileDetailsCard.classList.remove('hide');
+  dropZone.classList.add('hide');
+
+  checkFormValidity();
+}
+
+if (isTauriApp) {
+  const { listen } = window.__TAURI__.event;
+  listen('tauri://drag-over', () => {
+    dropZone.classList.add('drag-over');
+  });
+  listen('tauri://drag-leave', () => {
+    dropZone.classList.remove('drag-over');
+  });
+  listen('tauri://drag-drop', (event) => {
+    dropZone.classList.remove('drag-over');
+    if (event.payload && event.payload.paths && event.payload.paths.length > 0) {
+      const filePath = event.payload.paths[0].replace(/\\/g, '/');
+      handleTauriFileSelected(filePath);
+    }
+  });
 }
 
 function clearSelectedFile() {
@@ -736,18 +908,11 @@ async function performReplacement() {
   btnReplace.classList.add('disabled');
   btnReplace.setAttribute('disabled', 'true');
   const originalText = btnReplace.innerHTML;
-  btnReplace.innerHTML = '<span>Uploading & Replacing...</span>';
-
-  const formData = new FormData();
-  formData.append('relativePath', state.selectedTarget.relativePath);
-  formData.append('customUpk', state.selectedFile);
+  btnReplace.innerHTML = isTauriApp ? '<span>Replacing...</span>' : '<span>Uploading & Replacing...</span>';
 
   try {
-    const response = await apiFetch('/api/replace', {
-      method: 'POST',
-      body: formData
-    });
-    const data = await response.json();
+    const fileOrPath = state.selectedFile.isTauriApp ? state.selectedFile.path : state.selectedFile;
+    const data = await api.replaceFile(state.selectedTarget.relativePath, fileOrPath);
 
     if (data.success) {
       showToast('Custom mod file applied successfully!', 'success');
@@ -758,8 +923,8 @@ async function performReplacement() {
       showToast(data.error || 'Failed to replace file.', 'error');
     }
   } catch (err) {
-    console.error('Error during replacement POST:', err);
-    showToast('Network error during file replacement.', 'error');
+    console.error('Error during replacement:', err);
+    showToast('Error during file replacement.', 'error');
   } finally {
     // Restore button state
     btnReplace.classList.remove('disabled');
@@ -782,8 +947,7 @@ function formatBytes(bytes, decimals = 2) {
 // CATEGORIZED SELECTION LOGIC
 async function loadCategories() {
   try {
-    const response = await apiFetch('/api/categories');
-    const data = await response.json();
+    const data = await api.getCategories();
 
     categorySelect.innerHTML = '<option value="" disabled selected>Select Category...</option>';
     if (data.categories) {
@@ -809,8 +973,7 @@ categorySelect.addEventListener('change', async () => {
   fileSelect.innerHTML = '<option value="" disabled selected>Loading files...</option>';
 
   try {
-    const response = await apiFetch(`/api/files-by-category?category=${selectedCat}`);
-    const data = await response.json();
+    const data = await api.getFilesByCategory(selectedCat);
 
     fileSelect.innerHTML = '<option value="" disabled selected>Select File...</option>';
     if (data.files && data.files.length > 0) {
@@ -863,3 +1026,4 @@ tabCategory.addEventListener('click', () => {
 
 // START STATUS CHECK
 checkStatus();
+

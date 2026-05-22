@@ -159,14 +159,6 @@
                   <!-- Dynamically populated via JS -->
                 </div>
               </div>
-              
-              <!-- Quick select maps chips -->
-              <div class="quick-select-container">
-                <span class="quick-label">Quick Map Select:</span>
-                <div id="quick-target-chips" class="chips-list">
-                  <!-- Dynamically populated via JS -->
-                </div>
-              </div>
             </div>
 
             <!-- Method 2: Categorized Dropdowns -->
@@ -250,6 +242,54 @@
   <!-- Toast Notification Container -->
   <div id="toast-container" class="toast-container"></div>
 
+  <script>
+    // Global log forwarder
+    window.logToBackend = async function(...args) {
+      const msg = args.map(arg => {
+        if (typeof arg === 'object') {
+          try { return JSON.stringify(arg); } catch (e) { return String(arg); }
+        }
+        return String(arg);
+      }).join(' ');
+      
+      console.log('[Frontend]', msg);
+      if (window.__TAURI__ && window.__TAURI__.core && window.__TAURI__.core.invoke) {
+        try {
+          await window.__TAURI__.core.invoke('log_to_backend', { message: msg });
+        } catch (e) {
+          // Fallback if invoke fails
+        }
+      }
+    };
+
+    // Forward uncaught errors
+    window.onerror = function(message, source, lineno, colno, error) {
+      const errStr = `JS Error: ${message} at ${source}:${lineno}:${colno}`;
+      window.logToBackend(errStr);
+      
+      // Also show on setup screen if available
+      const statusMsg = document.getElementById('setup-status-message');
+      if (statusMsg) {
+        statusMsg.innerHTML = `<span class="msg-icon">⚠️</span><span class="msg-text">${errStr}</span>`;
+        statusMsg.className = 'status-msg error';
+        statusMsg.classList.remove('hide');
+      }
+      return false;
+    };
+
+    // Forward unhandled promise rejections
+    window.onunhandledrejection = function(event) {
+      const errStr = `Unhandled Promise Rejection: ${event.reason}`;
+      window.logToBackend(errStr);
+      
+      const statusMsg = document.getElementById('setup-status-message');
+      if (statusMsg) {
+        statusMsg.innerHTML = `<span class="msg-icon">⚠️</span><span class="msg-text">${errStr}</span>`;
+        statusMsg.className = 'status-msg error';
+        statusMsg.classList.remove('hide');
+      }
+    };
+  </script>
   <script src="js/app.js"></script>
 </body>
 </html>

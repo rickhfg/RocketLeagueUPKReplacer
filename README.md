@@ -9,13 +9,33 @@ A local GUI tool designed to replace Rocket League game files (`.upk` / `.udk`).
 - **Safety Backups & Restores**: Automatically creates `.rlupk.bak` backups and restores files in one click.
 - **Local Security**: Uses a secure API session token and binds strictly to `127.0.0.1`.
 
-## Installation
+## Installation & Usage (Desktop App)
 
-Ensure you have [Node.js](https://nodejs.org/) installed, then run:
+The application has been migrated to a native standalone desktop app using Tauri (v2) and Rust. It runs in a native window, loads instantly, and does not require Node.js or an external browser at runtime.
+
+### Prerequisites
+
+To build or run the application from source, you will need:
+1. **Rust / Cargo**: Install from [rustup.rs](https://rustup.rs/)
+2. **Node.js**: Install from [nodejs.org](https://nodejs.org/) (needed only for dev tooling and packaging)
+
+### Run Development Version
+
+To start the desktop application in developer mode:
 
 ```bash
 npm install
-npm start
+npx tauri dev
 ```
 
-Open [http://127.0.0.1:3000](http://127.0.0.1:3000) if it does not launch automatically.
+### Build Standalone Executable
+
+To compile the application into a single standalone `.exe` file:
+
+```bash
+npx tauri build
+```
+
+Once built, the standalone executable will be located at:
+`src-tauri/target/release/RLUPKR.exe` (or inside `src-tauri/target/release/bundle/nsis/` as an installer).
+
