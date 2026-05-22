@@ -3,9 +3,21 @@ const state = {
   activePath: null,
   cookedPath: null,
   selectedFile: null,
-  targetMapId: '',
-  maps: []
+  selectedTarget: null,
+  mods: []
 };
+
+// API TOKEN RETRIEVAL
+const apiToken = document.querySelector('meta[name="api-token"]')?.getAttribute('content') || '';
+
+// API FETCH WRAPPER
+async function apiFetch(url, options = {}) {
+  options.headers = {
+    ...options.headers,
+    'X-RLUPK-Token': apiToken
+  };
+  return fetch(url, options);
+}
 
 // DOM ELEMENTS
 const setupScreen = document.getElementById('setup-screen');
@@ -21,21 +33,47 @@ const manualPathForm = document.getElementById('manual-path-form');
 const manualPathInput = document.getElementById('manual-path-input');
 const setupStatusMessage = document.getElementById('setup-status-message');
 
-// Dashboard elements
+// Dashboard path displays
 const activePathText = document.getElementById('active-path-text');
 const btnChangePath = document.getElementById('btn-change-path');
+
+// Drag and drop custom file elements
 const dropZone = document.getElementById('drop-zone');
 const fileInput = document.getElementById('file-input');
 const fileDetailsCard = document.getElementById('file-details-card');
 const fileNameText = document.getElementById('file-name-text');
 const fileSizeText = document.getElementById('file-size-text');
 const btnClearFile = document.getElementById('btn-clear-file');
-const mapTargetSelect = document.getElementById('map-target-select');
-const btnReplace = document.getElementById('btn-replace');
-const btnRefreshMaps = document.getElementById('btn-refresh-maps');
-const mapStatusList = document.getElementById('map-status-list');
 
-// Modal elements
+// Autocomplete target search elements
+const targetSearchInput = document.getElementById('target-search-input');
+const btnBrowseTarget = document.getElementById('btn-browse-target');
+const searchResultsList = document.getElementById('search-results-list');
+const quickTargetChips = document.getElementById('quick-target-chips');
+
+// Categorized selector DOM elements
+const tabSearch = document.getElementById('tab-search');
+const tabCategory = document.getElementById('tab-category');
+const methodSearchContainer = document.getElementById('method-search-container');
+const methodCategoryContainer = document.getElementById('method-category-container');
+const categorySelect = document.getElementById('category-select');
+const fileSelect = document.getElementById('file-select');
+
+// Selected target card details
+const selectedTargetCard = document.getElementById('selected-target-card');
+const targetFilenameDisplay = document.getElementById('target-filename-display');
+const targetPathDisplay = document.getElementById('target-path-display');
+const btnClearTarget = document.getElementById('btn-clear-target');
+
+// Replace button action
+const btnReplace = document.getElementById('btn-replace');
+
+// Active Replacements Sidebar
+const modsCountBadge = document.getElementById('mods-count-badge');
+const btnRefreshMods = document.getElementById('btn-refresh-mods');
+const modsStatusList = document.getElementById('mods-status-list');
+
+// Confirmation modal elements
 const confirmModal = document.getElementById('confirm-modal');
 const modalTitle = document.getElementById('modal-title');
 const modalBodyText = document.getElementById('modal-body-text');
@@ -74,6 +112,7 @@ function showSetupMsg(message, type = 'error') {
   setupStatusMessage.classList.remove('hide');
 }
 
+// CLEAR SETUP MESSAGE
 function clearSetupMsg() {
   setupStatusMessage.textContent = '';
   setupStatusMessage.className = 'status-msg hide';
@@ -106,10 +145,10 @@ btnModalConfirm.addEventListener('click', () => {
 // INITIALIZE APP AND CHECK STATUS
 async function checkStatus() {
   try {
-    const response = await fetch('/api/status');
+    const response = await apiFetch('/api/status');
     const data = await response.json();
 
-    // Set Steam path text helper
+    // Check Steam location status
     if (data.steamExists) {
       btnSelectSteam.classList.remove('disabled');
       steamPathStatus.textContent = 'Default Steam path detected';
@@ -118,7 +157,7 @@ async function checkStatus() {
       steamPathStatus.textContent = 'Default path not found';
     }
 
-    // Set Epic path text helper
+    // Check Epic games location status
     if (data.epicExists) {
       btnSelectEpic.classList.remove('disabled');
       epicPathStatus.textContent = 'Default Epic path detected';
@@ -145,7 +184,9 @@ function showDashboard() {
   setupScreen.classList.add('hide');
   dashboardScreen.classList.remove('hide');
   activePathText.textContent = state.activePath;
-  loadMaps();
+  loadQuickTargets();
+  loadMods();
+  loadCategories();
 }
 
 function showSetup() {
@@ -158,7 +199,7 @@ function showSetup() {
 async function selectPath(type, manualPath = '') {
   clearSetupMsg();
   try {
-    const response = await fetch('/api/select-path', {
+    const response = await apiFetch('/api/select-path', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ type, manualPath })
@@ -195,11 +236,12 @@ manualPathForm.addEventListener('submit', (e) => {
 
 btnChangePath.addEventListener('click', async () => {
   try {
-    const response = await fetch('/api/reset-path', { method: 'POST' });
+    const response = await apiFetch('/api/reset-path', { method: 'POST' });
     const data = await response.json();
     if (data.success) {
       state.activePath = null;
       state.cookedPath = null;
+      resetTargetSelection();
       showSetup();
       checkStatus();
     }
@@ -209,122 +251,286 @@ btnChangePath.addEventListener('click', async () => {
   }
 });
 
-// LOAD MAPS LIST
-async function loadMaps() {
-  mapStatusList.innerHTML = '<div class="loading-placeholder">Loading map statuses...</div>';
+// LOAD QUICK TARGETS CHIPS
+async function loadQuickTargets() {
   try {
-    const response = await fetch('/api/maps');
+    const response = await apiFetch('/api/quick-targets');
     const data = await response.json();
 
-    if (data.maps) {
-      state.maps = data.maps;
-      renderMaps();
-      populateTargetDropdown();
+    quickTargetChips.innerHTML = '';
+    if (data.targets && data.targets.length > 0) {
+      data.targets.forEach(target => {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'chip-btn';
+        btn.textContent = target.name;
+        btn.addEventListener('click', () => {
+          selectTarget({
+            relativePath: target.filename,
+            filename: target.filename
+          });
+        });
+        quickTargetChips.appendChild(btn);
+      });
+    } else {
+      quickTargetChips.innerHTML = '<span class="text-muted">No quick targets available</span>';
     }
-  } catch (error) {
-    console.error('Error fetching maps:', error);
-    showToast('Failed to retrieve Rocket League maps.', 'error');
+  } catch (e) {
+    console.error('Error fetching quick targets:', e);
   }
 }
 
-btnRefreshMaps.addEventListener('click', loadMaps);
+// TARGET AUTOCOMPLETE SEARCH WITH DEBOUNCE
+let searchTimeout = null;
+let searchResults = [];
+let activeSearchIndex = -1;
 
-// RENDER MAPS SIDEBAR LIST
-function renderMaps() {
-  mapStatusList.innerHTML = '';
-  
-  if (state.maps.length === 0) {
-    mapStatusList.innerHTML = '<div class="loading-placeholder">No targets available.</div>';
+targetSearchInput.addEventListener('input', () => {
+  clearTimeout(searchTimeout);
+  const query = targetSearchInput.value.trim();
+  if (!query) {
+    hideSuggestions();
+    return;
+  }
+  searchTimeout = setTimeout(() => {
+    performSearch(query);
+  }, 250);
+});
+
+async function performSearch(query) {
+  try {
+    const response = await apiFetch(`/api/search?q=${encodeURIComponent(query)}`);
+    const data = await response.json();
+    searchResults = data.results || [];
+    activeSearchIndex = -1;
+    renderSuggestions();
+  } catch (e) {
+    console.error('Error fetching search autocomplete:', e);
+  }
+}
+
+function renderSuggestions() {
+  searchResultsList.innerHTML = '';
+  if (searchResults.length === 0) {
+    searchResultsList.innerHTML = '<div class="suggestion-no-results">No indexed package files match</div>';
+    searchResultsList.classList.remove('hide');
     return;
   }
 
-  state.maps.forEach(map => {
+  searchResults.forEach((result, idx) => {
     const item = document.createElement('div');
-    item.className = 'map-item-card';
-
-    // Status classes
-    const statusClass = map.status.toLowerCase();
-    
-    // Action content (Restore button only if modded)
-    let actionHTML = `<span class="status-badge ${statusClass}">${map.status}</span>`;
-    if (map.status === 'Modded') {
-      actionHTML = `
-        <span class="status-badge ${statusClass}">${map.status}</span>
-        <button type="button" class="restore-btn-small" data-map-id="${map.id}">Restore</button>
-      `;
+    item.className = 'suggestion-item';
+    if (idx === activeSearchIndex) {
+      item.classList.add('active');
     }
 
     item.innerHTML = `
+      <span class="suggestion-filename">${result.filename}</span>
+      <span class="suggestion-path">${result.relativePath}</span>
+    `;
+
+    item.addEventListener('click', () => {
+      selectTarget(result);
+    });
+
+    searchResultsList.appendChild(item);
+  });
+
+  searchResultsList.classList.remove('hide');
+}
+
+function hideSuggestions() {
+  searchResultsList.classList.add('hide');
+  searchResults = [];
+  activeSearchIndex = -1;
+}
+
+// Keyboard Navigation for Autocomplete Dropdown
+targetSearchInput.addEventListener('keydown', (e) => {
+  if (searchResultsList.classList.contains('hide')) return;
+
+  if (e.key === 'ArrowDown') {
+    e.preventDefault();
+    activeSearchIndex = (activeSearchIndex + 1) % searchResults.length;
+    renderSuggestions();
+    scrollActiveSuggestionIntoView();
+  } else if (e.key === 'ArrowUp') {
+    e.preventDefault();
+    activeSearchIndex = (activeSearchIndex - 1 + searchResults.length) % searchResults.length;
+    renderSuggestions();
+    scrollActiveSuggestionIntoView();
+  } else if (e.key === 'Enter') {
+    e.preventDefault();
+    if (activeSearchIndex >= 0 && activeSearchIndex < searchResults.length) {
+      selectTarget(searchResults[activeSearchIndex]);
+    }
+  } else if (e.key === 'Escape') {
+    e.preventDefault();
+    hideSuggestions();
+  }
+});
+
+function scrollActiveSuggestionIntoView() {
+  const activeItem = searchResultsList.querySelector('.suggestion-item.active');
+  if (activeItem) {
+    activeItem.scrollIntoView({ block: 'nearest' });
+  }
+}
+
+// Close suggestions on outside clicks
+document.addEventListener('click', (e) => {
+  if (!targetSearchInput.contains(e.target) && !searchResultsList.contains(e.target)) {
+    hideSuggestions();
+  }
+});
+
+// SELECT TARGET HANDLER
+function selectTarget(target, fromDropdown = false) {
+  state.selectedTarget = target;
+
+  targetFilenameDisplay.textContent = target.filename;
+  targetPathDisplay.textContent = `TAGame/CookedPCConsole/${target.relativePath}`;
+  
+  selectedTargetCard.classList.remove('hide');
+  targetSearchInput.value = ''; // Reset input text
+  hideSuggestions();
+
+  // If selection came from search or quick select, reset the categorized dropdowns to default state
+  if (!fromDropdown) {
+    categorySelect.value = '';
+    fileSelect.innerHTML = '<option value="" disabled selected>Select File...</option>';
+    fileSelect.disabled = true;
+  }
+
+  checkFormValidity();
+}
+
+function resetTargetSelection() {
+  state.selectedTarget = null;
+  selectedTargetCard.classList.add('hide');
+  targetSearchInput.value = '';
+  categorySelect.value = '';
+  fileSelect.innerHTML = '<option value="" disabled selected>Select File...</option>';
+  fileSelect.disabled = true;
+  checkFormValidity();
+}
+
+// Clear target handler
+btnClearTarget.addEventListener('click', resetTargetSelection);
+
+// BROWSE TARGET NATIVELY (Windows Dialog)
+btnBrowseTarget.addEventListener('click', async () => {
+  try {
+    btnBrowseTarget.classList.add('disabled');
+    btnBrowseTarget.setAttribute('disabled', 'true');
+    
+    const response = await apiFetch('/api/pick-target-file', { method: 'POST' });
+    const data = await response.json();
+
+    if (data.success) {
+      selectTarget({
+        relativePath: data.relativePath,
+        filename: data.filename
+      });
+      showToast('Selected file target successfully!', 'success');
+    } else if (data.error && data.error !== 'File selection cancelled.') {
+      showToast(data.error, 'error');
+    }
+  } catch (e) {
+    console.error('Error during native target picker:', e);
+    showToast('Failed to execute file picker dialog.', 'error');
+  } finally {
+    btnBrowseTarget.classList.remove('disabled');
+    btnBrowseTarget.removeAttribute('disabled');
+  }
+});
+
+// LOAD ACTIVE MODS LIST
+async function loadMods() {
+  modsStatusList.innerHTML = '<div class="loading-placeholder">Loading active replacements...</div>';
+  try {
+    const response = await apiFetch('/api/mods');
+    const data = await response.json();
+
+    if (response.ok && data.mods !== undefined) {
+      state.mods = data.mods;
+      modsCountBadge.textContent = data.count;
+      renderMods();
+    } else {
+      showToast(data.error || 'Failed to retrieve active replacements.', 'error');
+    }
+  } catch (error) {
+    console.error('Error loading mods:', error);
+    showToast('Failed to check mod directory status.', 'error');
+  }
+}
+
+// RENDER ACTIVE MODS IN SIDEBAR
+function renderMods() {
+  modsStatusList.innerHTML = '';
+
+  if (state.mods.length === 0) {
+    modsStatusList.innerHTML = '<div class="loading-placeholder">No active replacements.</div>';
+    return;
+  }
+
+  state.mods.forEach(mod => {
+    const item = document.createElement('div');
+    item.className = 'map-item-card';
+
+    item.innerHTML = `
       <div class="map-item-details">
-        <span class="map-name">${map.name}</span>
-        <span class="map-file">${map.filename}</span>
+        <span class="map-name">${mod.filename}</span>
+        <span class="map-file" title="${mod.relativePath}">${mod.relativePath}</span>
       </div>
       <div class="map-item-actions">
-        ${actionHTML}
+        <span class="status-badge modded">Modded</span>
+        <button type="button" class="restore-btn-small" data-rel-path="${mod.relativePath}">Restore</button>
       </div>
     `;
 
-    mapStatusList.appendChild(item);
+    modsStatusList.appendChild(item);
   });
 
-  // Attach restore button listeners
-  const restoreBtns = mapStatusList.querySelectorAll('.restore-btn-small');
+  // Attach restore action listeners
+  const restoreBtns = modsStatusList.querySelectorAll('.restore-btn-small');
   restoreBtns.forEach(btn => {
     btn.addEventListener('click', (e) => {
-      const mapId = e.target.getAttribute('data-map-id');
-      const map = state.maps.find(m => m.id === mapId);
-      
+      const relPath = e.target.getAttribute('data-rel-path');
+      const mod = state.mods.find(m => m.relativePath === relPath);
+
       showConfirmModal(
-        'Restore Original Map',
-        `Are you sure you want to restore the original map for "${map.name}"? This will delete the active custom mod.`,
-        () => restoreMap(mapId)
+        'Restore Original Package',
+        `Are you sure you want to restore the original game file for "${mod.filename}"? This will delete your custom mod.`,
+        () => restoreMod(relPath)
       );
     });
   });
 }
 
-// POPULATE DROPDOWN SELECTOR
-function populateTargetDropdown() {
-  const currentValue = mapTargetSelect.value;
-  mapTargetSelect.innerHTML = '<option value="" disabled selected>Select a target map...</option>';
-
-  state.maps.forEach(map => {
-    const option = document.createElement('option');
-    option.value = map.id;
-    option.textContent = `${map.name} (${map.filename}) [${map.status}]`;
-    mapTargetSelect.appendChild(option);
-  });
-
-  if (currentValue && state.maps.some(m => m.id === currentValue)) {
-    mapTargetSelect.value = currentValue;
-    state.targetMapId = currentValue;
-  } else {
-    state.targetMapId = '';
-  }
-  checkFormValidity();
-}
-
-// RESTORE MAP
-async function restoreMap(mapId) {
+// RESTORE ORIGINAL FILE HANDLER
+async function restoreMod(relativePath) {
   try {
-    const response = await fetch('/api/restore', {
+    const response = await apiFetch('/api/restore', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ mapId })
+      body: JSON.stringify({ relativePath })
     });
     const data = await response.json();
 
     if (data.success) {
-      showToast('Original map file restored successfully!', 'success');
-      loadMaps();
+      showToast('Original package file restored!', 'success');
+      loadMods();
     } else {
-      showToast(data.error || 'Failed to restore map.', 'error');
+      showToast(data.error || 'Failed to restore file.', 'error');
     }
   } catch (err) {
-    console.error(err);
-    showToast('Network error while restoring map.', 'error');
+    console.error('Error during restore call:', err);
+    showToast('Network error restoring package.', 'error');
   }
 }
+
+btnRefreshMods.addEventListener('click', loadMods);
 
 // DRAG AND DROP FILE HANDLERS
 dropZone.addEventListener('click', () => {
@@ -337,7 +543,7 @@ fileInput.addEventListener('change', (e) => {
   }
 });
 
-// Drag enter/over transitions
+// Drag enter/over animations
 ['dragenter', 'dragover'].forEach(eventName => {
   dropZone.addEventListener(eventName, (e) => {
     e.preventDefault();
@@ -346,7 +552,7 @@ fileInput.addEventListener('change', (e) => {
   }, false);
 });
 
-// Drag leave/drop transitions
+// Drag leave/drop cleanup
 ['dragleave', 'drop'].forEach(eventName => {
   dropZone.addEventListener(eventName, (e) => {
     e.preventDefault();
@@ -355,7 +561,7 @@ fileInput.addEventListener('change', (e) => {
   }, false);
 });
 
-// Drop file handler
+// Handle dropped files
 dropZone.addEventListener('drop', (e) => {
   const dt = e.dataTransfer;
   const files = dt.files;
@@ -366,7 +572,7 @@ dropZone.addEventListener('drop', (e) => {
 
 function handleFileSelected(file) {
   const ext = file.name.substring(file.name.lastIndexOf('.')).toLowerCase();
-  
+
   if (ext !== '.upk' && ext !== '.udk') {
     showToast('Invalid file extension. Only .upk or .udk files are supported.', 'error');
     clearSelectedFile();
@@ -382,10 +588,10 @@ function handleFileSelected(file) {
   state.selectedFile = file;
   fileNameText.textContent = file.name;
   fileSizeText.textContent = formatBytes(file.size);
-  
+
   fileDetailsCard.classList.remove('hide');
   dropZone.classList.add('hide');
-  
+
   checkFormValidity();
 }
 
@@ -402,15 +608,9 @@ btnClearFile.addEventListener('click', (e) => {
   clearSelectedFile();
 });
 
-// MAP SELECT EVENT
-mapTargetSelect.addEventListener('change', (e) => {
-  state.targetMapId = e.target.value;
-  checkFormValidity();
-});
-
 // FORM VALIDATION
 function checkFormValidity() {
-  if (state.selectedFile && state.targetMapId) {
+  if (state.selectedFile && state.selectedTarget) {
     btnReplace.classList.remove('disabled');
     btnReplace.removeAttribute('disabled');
   } else {
@@ -419,54 +619,52 @@ function checkFormValidity() {
   }
 }
 
-// REPLACE MAP ACTION
+// REPLACE ACTION
 btnReplace.addEventListener('click', () => {
-  if (!state.selectedFile || !state.targetMapId) return;
+  if (!state.selectedFile || !state.selectedTarget) return;
 
-  const targetMap = state.maps.find(m => m.id === state.targetMapId);
   showConfirmModal(
-    'Replace Map File',
-    `You are replacing "${targetMap.name}" with your custom file "${state.selectedFile.name}". If this is your first replacement, an original game map backup (.bak) will be created automatically. Proceed?`,
+    'Replace Game File',
+    `You are replacing target file "${state.selectedTarget.filename}" with custom mod file "${state.selectedFile.name}". If this is your first replacement, an original game file backup (.bak) will be created automatically. Proceed?`,
     performReplacement
   );
 });
 
 async function performReplacement() {
-  // Update button state to loading
+  // Update button loading state
   btnReplace.classList.add('disabled');
   btnReplace.setAttribute('disabled', 'true');
   const originalText = btnReplace.innerHTML;
   btnReplace.innerHTML = '<span>Uploading & Replacing...</span>';
 
   const formData = new FormData();
-  formData.append('mapId', state.targetMapId);
+  formData.append('relativePath', state.selectedTarget.relativePath);
   formData.append('customUpk', state.selectedFile);
 
   try {
-    const response = await fetch('/api/replace', {
+    const response = await apiFetch('/api/replace', {
       method: 'POST',
       body: formData
     });
     const data = await response.json();
 
     if (data.success) {
-      showToast('Custom map replaced successfully!', 'success');
+      showToast('Custom mod file applied successfully!', 'success');
       clearSelectedFile();
-      loadMaps();
+      resetTargetSelection();
+      loadMods();
     } else {
-      showToast(data.error || 'Failed to replace map.', 'error');
-      // Restore button state
-      btnReplace.classList.remove('disabled');
-      btnReplace.removeAttribute('disabled');
-      btnReplace.innerHTML = originalText;
+      showToast(data.error || 'Failed to replace file.', 'error');
     }
   } catch (err) {
-    console.error(err);
-    showToast('Network error during replacement.', 'error');
+    console.error('Error during replacement POST:', err);
+    showToast('Network error during file replacement.', 'error');
+  } finally {
     // Restore button state
     btnReplace.classList.remove('disabled');
     btnReplace.removeAttribute('disabled');
     btnReplace.innerHTML = originalText;
+    checkFormValidity();
   }
 }
 
@@ -479,6 +677,88 @@ function formatBytes(bytes, decimals = 2) {
   const i = Math.floor(Math.log(bytes) / Math.log(k));
   return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
 }
+
+// CATEGORIZED SELECTION LOGIC
+async function loadCategories() {
+  try {
+    const response = await apiFetch('/api/categories');
+    const data = await response.json();
+
+    categorySelect.innerHTML = '<option value="" disabled selected>Select Category...</option>';
+    if (data.categories) {
+      data.categories.forEach(cat => {
+        const option = document.createElement('option');
+        option.value = cat.id;
+        option.textContent = `${cat.name} (${cat.count})`;
+        categorySelect.appendChild(option);
+      });
+    }
+  } catch (e) {
+    console.error('Error loading categories:', e);
+    showToast('Failed to load target categories.', 'error');
+  }
+}
+
+// Category Change Listener
+categorySelect.addEventListener('change', async () => {
+  const selectedCat = categorySelect.value;
+  if (!selectedCat) return;
+
+  fileSelect.disabled = true;
+  fileSelect.innerHTML = '<option value="" disabled selected>Loading files...</option>';
+
+  try {
+    const response = await apiFetch(`/api/files-by-category?category=${selectedCat}`);
+    const data = await response.json();
+
+    fileSelect.innerHTML = '<option value="" disabled selected>Select File...</option>';
+    if (data.files && data.files.length > 0) {
+      data.files.forEach(file => {
+        const option = document.createElement('option');
+        option.value = JSON.stringify({ relativePath: file.relativePath, filename: file.filename });
+        option.textContent = file.filename;
+        fileSelect.appendChild(option);
+      });
+      fileSelect.disabled = false;
+    } else {
+      fileSelect.innerHTML = '<option value="" disabled selected>No files in this category</option>';
+      fileSelect.disabled = true;
+    }
+  } catch (e) {
+    console.error('Error loading files by category:', e);
+    showToast('Failed to load category files.', 'error');
+    fileSelect.innerHTML = '<option value="" disabled selected>Error loading files</option>';
+    fileSelect.disabled = true;
+  }
+});
+
+// File Change Listener
+fileSelect.addEventListener('change', () => {
+  const val = fileSelect.value;
+  if (!val) return;
+
+  try {
+    const fileData = JSON.parse(val);
+    selectTarget(fileData, true);
+  } catch (e) {
+    console.error('Error parsing selected file value:', e);
+  }
+});
+
+// TAB SWAP EVENT LISTENERS
+tabSearch.addEventListener('click', () => {
+  tabSearch.classList.add('active');
+  tabCategory.classList.remove('active');
+  methodSearchContainer.classList.remove('hide');
+  methodCategoryContainer.classList.add('hide');
+});
+
+tabCategory.addEventListener('click', () => {
+  tabCategory.classList.add('active');
+  tabSearch.classList.remove('active');
+  methodCategoryContainer.classList.remove('hide');
+  methodSearchContainer.classList.add('hide');
+});
 
 // START STATUS CHECK
 checkStatus();

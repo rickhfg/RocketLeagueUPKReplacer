@@ -3,6 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="api-token" content="__API_TOKEN__">
   <title>Rocket League UPK Replacer</title>
   <!-- Google Fonts: Outfit for clean modern headers/UI -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -101,9 +102,15 @@
         <!-- Main Actions Area (Left) -->
         <section class="main-panel glass-panel fade-in-delay-1">
           <header class="panel-header">
-            <h3>Replace Map file</h3>
-            <p>Upload your custom .upk file and select the map you want to replace.</p>
+            <h3>Replace Game Package (.upk / .udk)</h3>
+            <p>Upload your custom mod file and select which in-game file to replace.</p>
           </header>
+
+          <!-- Safety Warning Banner -->
+          <div class="safety-banner">
+            <span class="warning-icon">⚠️</span>
+            <span class="warning-text">Only replace files when Rocket League is closed. Replacing packages may cause game instability until restored.</span>
+          </div>
 
           <div class="upload-section">
             <!-- Drag and Drop Zone -->
@@ -111,7 +118,7 @@
               <input type="file" id="file-input" accept=".upk,.udk" class="hide-input" />
               <div class="drop-zone-content">
                 <span class="upload-icon">📥</span>
-                <span class="main-instruction">Drag & drop your custom <strong>.upk</strong> file here</span>
+                <span class="main-instruction">Drag & drop your custom <strong>.upk</strong> / <strong>.udk</strong> file here</span>
                 <span class="sub-instruction">or click to browse your files</span>
               </div>
             </div>
@@ -128,30 +135,93 @@
           </div>
 
           <div class="selector-section">
-            <label for="map-target-select">Choose In-Game Target Map</label>
-            <div class="custom-select-wrapper">
-              <select id="map-target-select">
-                <option value="" disabled selected>Select a target map...</option>
-                <!-- Dynamically populated from JS -->
-              </select>
+            <label>Choose In-Game Target File</label>
+            
+            <!-- Selector Method Tabs -->
+            <div class="selector-method-tabs">
+              <button type="button" id="tab-search" class="method-tab-btn active">
+                <span class="tab-icon">🔍</span> Search & Browse
+              </button>
+              <button type="button" id="tab-category" class="method-tab-btn">
+                <span class="tab-icon">📂</span> Categories Dropdown
+              </button>
+            </div>
+
+            <!-- Method 1: Search & Browse -->
+            <div id="method-search-container" class="method-container">
+              <div class="autocomplete-wrapper">
+                <div class="search-input-group">
+                  <input type="text" id="target-search-input" placeholder="Type to search indexed packages (e.g. Underpass, Octane)..." autocomplete="off" />
+                  <button type="button" id="btn-browse-target" class="secondary-btn-small search-btn" title="Browse target file natively via Windows File Dialog">Browse File...</button>
+                </div>
+                <!-- Floating Suggestions List -->
+                <div id="search-results-list" class="search-suggestions glass-panel hide">
+                  <!-- Dynamically populated via JS -->
+                </div>
+              </div>
+              
+              <!-- Quick select maps chips -->
+              <div class="quick-select-container">
+                <span class="quick-label">Quick Map Select:</span>
+                <div id="quick-target-chips" class="chips-list">
+                  <!-- Dynamically populated via JS -->
+                </div>
+              </div>
+            </div>
+
+            <!-- Method 2: Categorized Dropdowns -->
+            <div id="method-category-container" class="method-container hide">
+              <div class="categorized-select-group">
+                <div class="select-field">
+                  <label for="category-select">Category</label>
+                  <div class="custom-select-wrapper">
+                    <select id="category-select">
+                      <option value="" disabled selected>Select Category...</option>
+                    </select>
+                  </div>
+                </div>
+                <div class="select-field">
+                  <label for="file-select">File</label>
+                  <div class="custom-select-wrapper">
+                    <select id="file-select" disabled>
+                      <option value="" disabled selected>Select File...</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Selected Target Display Card -->
+            <div id="selected-target-card" class="selected-target-display hide">
+              <div class="target-card-header">
+                <span class="target-card-title">🎯 Selected In-Game Target</span>
+                <button type="button" id="btn-clear-target" class="clear-btn-small" title="Clear target selection">✕</button>
+              </div>
+              <div class="target-card-details">
+                <span id="target-filename-display" class="target-filename">Labs_Underpass_P.upk</span>
+                <span id="target-path-display" class="target-path">TAGame/CookedPCConsole/Labs_Underpass_P.upk</span>
+              </div>
             </div>
           </div>
 
           <button type="button" id="btn-replace" class="action-btn-replace disabled" disabled>
-            <span>Replace Map</span>
+            <span>Replace Package File</span>
           </button>
         </section>
 
-        <!-- Maps Status Sidebar (Right) -->
+        <!-- Active Mods Sidebar (Right) -->
         <aside class="sidebar-panel glass-panel fade-in-delay-2">
           <div class="sidebar-header">
-            <h3>Replacement Targets</h3>
-            <button type="button" id="btn-refresh-maps" class="icon-btn-refresh" title="Refresh Map Statuses">🔄</button>
+            <h3>Active Replacements</h3>
+            <div class="header-actions">
+              <span id="mods-count-badge" class="mods-count">0</span>
+              <button type="button" id="btn-refresh-mods" class="icon-btn-refresh" title="Refresh Replacements">🔄</button>
+            </div>
           </div>
           
-          <div id="map-status-list" class="maps-list">
+          <div id="mods-status-list" class="maps-list">
             <!-- Dynamically populated from JS -->
-            <div class="loading-placeholder">Loading map statuses...</div>
+            <div class="loading-placeholder">Loading replacements...</div>
           </div>
         </aside>
       </div>
