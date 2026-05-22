@@ -1,4 +1,4 @@
-# Rocket League UPK Replacer
+# Rocket League UPK Replacer (RLUPKR)
 
 A local GUI tool designed to replace Rocket League game files (`.upk` / `.udk`). It allows you to customize maps, car bodies, decals, wheels, boosts, and other game assets.
 
